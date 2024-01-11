@@ -36,7 +36,14 @@ public class TuningActivity extends AppCompatActivity {
     TextView pitch;
     TextView currentPitch;
 
-    int diff;
+    double diff;
+
+    private double round1dec(double value) {
+
+        double tmp1 = value * 10;
+        double tmp2 = Math.round(tmp1);
+        return tmp2 / 10;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,8 +63,14 @@ public class TuningActivity extends AppCompatActivity {
         if (checkPermissions() == PackageManager.PERMISSION_GRANTED) {
             AudioDispatcher dispatcher = AudioDispatcherFactory.fromDefaultMicrophone(22050, 1024, 0);
             PitchDetectionHandler pdh = (res, e) -> {
-                final float pitchInHz = res.getPitch();
+                final double pitchInHz = res.getPitch();
                 runOnUiThread(() -> {
+                    // small delay
+                    try {
+                        Thread.sleep(10);
+                    } catch (InterruptedException err) {
+                        err.printStackTrace();
+                    }
                     if (tuning.getText().toString().equals("Standard")) {
                         standardTuning(pitchInHz);
                     } else if (tuning.getText().toString().equals("Low E")) {
@@ -88,22 +101,27 @@ public class TuningActivity extends AppCompatActivity {
     }
 
     @SuppressLint("SetTextI18n")
-    private void setMarginAndText(int diff) {
+    private void setMarginAndText(double diff) {
+
+        double roundDiff = round1dec(diff);
+
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ActionBar.LayoutParams.WRAP_CONTENT, ActionBar.LayoutParams.WRAP_CONTENT);
 
+        int numberOfLines = (int) Math.floor(abs(roundDiff));
+        int margin = numberOfLines * 8;
+
         StringBuilder text = new StringBuilder();
-        for (int i = 0; i < abs(diff); i++)
+        // only add lines if difference more than 1
+        for (int i = 0; i < numberOfLines; i++)
             text.append(String.valueOf((char) 124));
 
-        if (diff > 0) {
-            //params.setMargins(diff * (-15), 0, 0, 0);
-            params.setMargins(0, 0, diff * 10, 0);
-            pitch.setText(text + "-" + diff);
+        if (roundDiff > 0) {
+            params.setMargins(0, 0, margin, 0);
+            pitch.setText(text + "+" + roundDiff);
             pitch.setGravity(Gravity.START);
-        } else if (diff < 0) {
-            params.setMargins(diff * (-10), 0, 0, 0);
-            //params.setMargins(0, 0, diff * 15, 0);
-            pitch.setText("+" + abs(diff) + text);
+        } else if (roundDiff < 0) {
+            params.setMargins(margin, 0, 0, 0);
+            pitch.setText("-" + abs(roundDiff) + text);
             pitch.setGravity(Gravity.END);
         } else {
             params.setMargins(0, 0, 0, 0);
@@ -113,106 +131,65 @@ public class TuningActivity extends AppCompatActivity {
         pitch.setLayoutParams(params);
     }
 
-    private void standardTuning(float pitchInHz) {
-        currentPitch.setText(pitchInHz == -1.0 ? "0" : Float.toString(pitchInHz));
-        if (pitchInHz >= 72.4 && pitchInHz < 92.4) {
-            diff = 82 - (int) Math.ceil(pitchInHz);
-            string.setText("e");
-            setMarginAndText(diff);
-        }
-        else if (pitchInHz >= 100 && pitchInHz < 120) {
-            diff = 110 - (int) Math.ceil(pitchInHz);
-            string.setText("A");
-            setMarginAndText(diff);
-        }
-        else if (pitchInHz >= 137 && pitchInHz < 157) {
-            diff = 146 - (int) Math.ceil(pitchInHz);
-            string.setText("D");
-            setMarginAndText(diff);
-        }
-        else if (pitchInHz >= 186 && pitchInHz < 206) {
-            diff = 196 - (int) Math.ceil(pitchInHz);
-            string.setText("G");
-            setMarginAndText(diff);
-        }
-        else if (pitchInHz >= 237 && pitchInHz <= 257) {
-            diff = 246 - (int) Math.ceil(pitchInHz);
-            string.setText("B");
-            setMarginAndText(diff);
-        }
-        else if (pitchInHz >= 320 && pitchInHz < 340) {
-            diff = 330 - (int) Math.ceil(pitchInHz);
-            string.setText("E");
-            setMarginAndText(diff);
-        }
+    private void processPitch(Double pitchInHz, Double desiredPitch, String note) {
+        diff = pitchInHz - desiredPitch;
+        string.setText(note);
+        setMarginAndText(diff);
     }
 
-    private void dropDTuning(float pitchInHz) {
-        currentPitch.setText(pitchInHz == -1.0 ? "0" : Float.toString(pitchInHz));
-        if (pitchInHz >= 63.4 && pitchInHz < 83.4) {
-            diff = 73 - (int) Math.ceil(pitchInHz);
-            string.setText("e");
-            setMarginAndText(diff);
-        }
-        else if (pitchInHz >= 100 && pitchInHz < 120) {
-            diff = 110 - (int) Math.ceil(pitchInHz);
-            string.setText("A");
-            setMarginAndText(diff);
-        }
-        else if (pitchInHz >= 137 && pitchInHz < 157) {
-            diff = 146 - (int) Math.ceil(pitchInHz);
-            string.setText("D");
-            setMarginAndText(diff);
-        }
-        else if (pitchInHz >= 186 && pitchInHz < 206) {
-            diff = 196 - (int) Math.ceil(pitchInHz);
-            string.setText("G");
-            setMarginAndText(diff);
-        }
-        else if (pitchInHz >= 237 && pitchInHz <= 257) {
-            diff = 246 - (int) Math.ceil(pitchInHz);
-            string.setText("B");
-            setMarginAndText(diff);
-        }
-        else if (pitchInHz >= 320 && pitchInHz < 340) {
-            diff = 330 - (int) Math.ceil(pitchInHz);
-            string.setText("E");
-            setMarginAndText(diff);
-        }
+    private void resetText(Double pitchInHz) {
+
+        currentPitch.setText(pitchInHz == -1.0 ? "0" : Double.toString(pitchInHz));
+        string.setText("");
+        pitch.setText("");
     }
 
-    private void lowETuning(float pitchInHz) {
-        currentPitch.setText(pitchInHz == -1.0 ? "0" : Float.toString(pitchInHz));
-        if (pitchInHz >= 70 && pitchInHz < 86) {
-            diff = 78 - (int) Math.ceil(pitchInHz);
-            string.setText("e");
-            setMarginAndText(diff);
-        }
-        else if (pitchInHz >= 97 && pitchInHz < 113) {
-            diff = 105 - (int) Math.ceil(pitchInHz);
-            string.setText("A");
-            setMarginAndText(diff);
-        }
-        else if (pitchInHz >= 129 && pitchInHz < 148) {
-            diff = 139 - (int) Math.ceil(pitchInHz);
-            string.setText("D");
-            setMarginAndText(diff);
-        }
-        else if (pitchInHz >= 175 && pitchInHz < 195) {
-            diff = 185 - (int) Math.ceil(pitchInHz);
-            string.setText("G");
-            setMarginAndText(diff);
-        }
-        else if (pitchInHz >= 223 && pitchInHz <= 243) {
-            diff = 233 - (int) Math.ceil(pitchInHz);
-            string.setText("B");
-            setMarginAndText(diff);
-        }
-        else if (pitchInHz >= 302 && pitchInHz < 322) {
-            diff = 312 - (int) Math.ceil(pitchInHz);
-            string.setText("E");
-            setMarginAndText(diff);
-        }
+    private void standardTuning(double pitchInHz) {
+        resetText(pitchInHz);
+        if (pitchInHz >= 72.4 && pitchInHz < 92.4)
+            processPitch(pitchInHz, 82.0, "e");
+        else if (pitchInHz >= 100 && pitchInHz < 120)
+            processPitch(pitchInHz, 110.0, "A");
+        else if (pitchInHz >= 137 && pitchInHz < 157)
+            processPitch(pitchInHz, 146.0, "D");
+        else if (pitchInHz >= 186 && pitchInHz < 206)
+            processPitch(pitchInHz, 196.0, "G");
+        else if (pitchInHz >= 237 && pitchInHz <= 257)
+            processPitch(pitchInHz, 246.0, "B");
+        else if (pitchInHz >= 320 && pitchInHz < 340)
+            processPitch(pitchInHz, 330.0, "E");
+    }
+
+    private void dropDTuning(double pitchInHz) {
+        resetText(pitchInHz);
+        if (pitchInHz >= 63.4 && pitchInHz < 83.4)
+            processPitch(pitchInHz, 73.0, "e");
+        else if (pitchInHz >= 100 && pitchInHz < 120)
+            processPitch(pitchInHz, 110.0, "A");
+        else if (pitchInHz >= 137 && pitchInHz < 157)
+            processPitch(pitchInHz, 146.0, "D");
+        else if (pitchInHz >= 186 && pitchInHz < 206)
+            processPitch(pitchInHz, 196.0, "G");
+        else if (pitchInHz >= 237 && pitchInHz <= 257)
+            processPitch(pitchInHz, 246.0, "B");
+        else if (pitchInHz >= 320 && pitchInHz < 340)
+            processPitch(pitchInHz, 330.0, "E");
+    }
+
+    private void lowETuning(double pitchInHz) {
+        resetText(pitchInHz);
+        if (pitchInHz >= 70 && pitchInHz < 86)
+            processPitch(pitchInHz, 78.0, "e");
+        else if (pitchInHz >= 97 && pitchInHz < 113)
+            processPitch(pitchInHz, 105.0, "A");
+        else if (pitchInHz >= 129 && pitchInHz < 148)
+            processPitch(pitchInHz, 139.0, "D");
+        else if (pitchInHz >= 175 && pitchInHz < 195)
+            processPitch(pitchInHz, 185.0, "G");
+        else if (pitchInHz >= 223 && pitchInHz <= 243)
+            processPitch(pitchInHz, 233.0, "B");
+        else if (pitchInHz >= 302 && pitchInHz < 322)
+            processPitch(pitchInHz, 312.0, "E");
     }
 
     private int checkPermissions() {
